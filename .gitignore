@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
+# Node/JS
+node_modules/
+dist/
+coverage/
+
+# ビルド/IDE
+*.log
+*.tmp
+.DS_Store
+.vscode/
+.idea/

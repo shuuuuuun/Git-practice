@@ -1,0 +1,47 @@
+# Workflow 名（Actions 画面での表示名）
+name: sql-dryrun
+
+# いつ動かすか：PRが作られた/更新された時、かつ変更に .sql が含まれる場合だけ
+on:
+  pull_request:
+    paths: ["**/*.sql"]
+
+jobs:
+  dryrun:
+    # GitHub が用意するホスト（Ubuntu）で実行
+    runs-on: ubuntu-latest
+
+    # vsql に渡す接続オプション。値は GitHub Secrets から安全に取得
+    env:
+      VERTICA_OPTS: "-h ${{ secrets.V_HOST }} -d ${{ secrets.V_DB }} -U ${{ secrets.V_USER }} -w ${{ secrets.V_PASS }}"
+
+    steps:
+      # リポジトリのコードをチェックアウト
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # （必要なら）Vertica クライアント vsql をインストール
+      # 既にセルフホストRunnerに入っているなら、このステップは削除OK
+      # - name: Install Vertica client (example)
+      #   run: |
+      #     sudo apt-get update
+      #     # ここで vsql をインストールする手順を入れる
+      #     # 例）社内の.debを curl で取得 → dpkg -i、など
+      #     which vsql || { echo "vsql not found"; exit 1; }
+
+      # 変更された .sql ファイルだけを抽出
+      - name: Collect changed SQL files
+        shell: bash
+        run: |
+          # PRの比較元ブランチ（base）を取得
+          git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+          # base..HEAD の差分から .sql を列挙（無ければ空ファイル）
+          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD \
+            | grep -E '\.sql$' || true > files.txt
+          echo "Target SQL files:"
+          cat files.txt || true
+
+      # 各SQLを BEGIN→ROLLBACK で“から回し”（副作用なしに通るか確認）
+      - name: Dry-run each SQL (BEGIN..ROLLBACK)
+        if: always()  # files.txt が空でも実行してOK（中でスキップ）
+        shell: bash
