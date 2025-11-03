@@ -2,4 +2,4 @@
 # First commit
 # version 1.3
 
-SELECT 1
+SELECT 3
